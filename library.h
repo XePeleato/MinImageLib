@@ -1,0 +1,6 @@
+#ifndef MINIMAGEDRV_LIBRARY_H
+#define MINIMAGEDRV_LIBRARY_H
+
+void hello();
+
+#endif //MINIMAGEDRV_LIBRARY_H
