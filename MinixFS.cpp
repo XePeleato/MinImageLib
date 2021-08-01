@@ -39,37 +39,28 @@ namespace minixfs {
     }
 
     size_t MinixFS::readInode(const Inode& inode, void *buffer, size_t size, size_t offset) const {
-
         size_t read = 0;
         size_t toRead = size;
+        std::vector<char> buf(inode.d2_size);
 
         for (int i = 0; i < V2_NR_TZONES && inode.d2_zone[i] != 0 && toRead != 0; i++) {
-            if (offset > 0) {
-                i = (int) (offset / 0x1000); // block where the data is
-                offset %= 0x1000;
-                if (i > V2_NR_DZONES + 1) {
-                    // handle this
-                }
-            }
-
             if (i < V2_NR_DZONES) {
                 // Direct block.
-                toRead -= readBlock(inode.d2_zone[i], static_cast<char *>(buffer) + read, min(0x1000, size), offset);
+                toRead -= readBlock(inode.d2_zone[i], buf.data() + read, min(0x1000, size), offset);
                 read += 0x1000;
             }
             else if (i == V2_NR_DZONES + 1) {
                 // Indirect block
-                read += readIndirectBlock(inode.d2_zone[i], static_cast<char *>(buffer) + read, min(0x1000, size), offset);
+                read += readIndirectBlock(inode.d2_zone[i], buf.data() + read, min(0x1000, size), offset);
             }
             else {
                 if (i == V2_NR_DZONES + 2) {
                     // do nothing...
                 }
             }
-            if (offset != 0) {
-                offset = 0;
-            }
         }
+        // handle offset/size here
+        std::copy(buf.data() + offset, buf.data() + size, buffer);
         return read;
     }
 
