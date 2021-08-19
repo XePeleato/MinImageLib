@@ -20,6 +20,17 @@ namespace minixfs {
             return SetupState::ErrorFormat;
         }
 
+        {
+            std::lock_guard<std::mutex> lock(mStream->m_fileMutex);
+            mInodeBitmap = std::vector<char>(0x1000);
+            mStream->m_file.seekg(0x2000, std::ifstream::beg);
+            mStream->m_file.read(mInodeBitmap.data(), 0x1000);
+
+            mBlockBitmap = std::vector<char>(0x1000);
+            mStream->m_file.seekg(0x3000, std::ifstream::beg);
+            mStream->m_file.read(mBlockBitmap.data(), 0x1000);
+        }
+
         mInodes = new Inodes(*mStream, mSuperBlock->s_ninodes);
 
         loadEntries();
@@ -60,7 +71,7 @@ namespace minixfs {
             }
         }
         // handle offset/size here
-        std::copy(buf.data() + offset, buf.data() + size, buffer);
+        memcpy_s(buffer, size, buf.data() + offset, size);
         return read;
     }
 
@@ -140,6 +151,49 @@ namespace minixfs {
     }
 
     size_t MinixFS::getFreeSpace() const {
-        return 0;
+        auto totalSpace = mSuperBlock->s_zones * 0x1000;
+        auto used = 0;
+        for (int i = 0; i < mSuperBlock->s_zones; i++) {
+            if (getBlock(i)) {
+                used += 0x1000;
+            }
+        }
+        return totalSpace - used;
+    }
+
+    size_t MinixFS::getTotalSpace() const {
+        return mSuperBlock->s_zones * 0x1000;
+    }
+
+    bool MinixFS::getBlock(zone_t zone) const {
+        int w = zone / 8;
+        int s = zone % 8;
+        return ((mBlockBitmap[w] >> s) & 1) != 0;
+    }
+
+    bool MinixFS::getInode(ino_t ino) const {
+        int w = ino / 8;
+        int s = ino % 8;
+        return ((mInodeBitmap[w] >> s) & 1) != 0;
+    }
+
+    void MinixFS::setBlock(zone_t block, bool set) {
+        int w = block / 8;
+        int s = block % 8;
+        if (set) {
+            mBlockBitmap[w] = 1UL << s;
+        } else {
+            mBlockBitmap[w] &= ~(1UL << s);
+        }
+    }
+
+    void MinixFS::setInode(ino_t ino, bool set) {
+        int w = ino / 8;
+        int s = ino % 8;
+        if (set) {
+            mInodeBitmap[w] = 1UL << s;
+        } else {
+            mInodeBitmap[w] &= ~(1UL << s);
+        }
     }
 }

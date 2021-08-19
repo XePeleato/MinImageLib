@@ -34,16 +34,22 @@ namespace minixfs {
         std::vector<DirEntry*> listFolder(const std::filesystem::path &path) const;
         void loadEntries();
         void loadEntry(ino_t inode, std::filesystem::path &path);
+        size_t getFreeSpace() const;
+        size_t getTotalSpace() const;
     private:
         SuperBlock *mSuperBlock;
-        Inodes *mInodes;
+        std::vector<char> mInodeBitmap;
 
+        std::vector<char> mBlockBitmap;
+
+        Inodes *mInodes;
         std::map<std::wstring, ino_t> mEntryMap;
         std::unique_ptr<Stream> mStream;
 
-        std::string &getFileName(Inode &ino) const;
-
-        size_t getFreeSpace() const;
+        bool getBlock(zone_t block) const;
+        bool getInode(ino_t ino) const;
+        void setBlock(zone_t block, bool set);
+        void setInode(ino_t ino, bool set);
     };
 }
 

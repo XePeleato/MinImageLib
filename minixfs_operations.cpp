@@ -271,9 +271,9 @@ namespace minixfs {
             PULONGLONG total_number_of_free_bytes, PDOKAN_FILE_INFO dokanfileinfo) {
         auto ctx = utils::getContext(dokanfileinfo);
 
-        *free_bytes_available = 0;
-        *total_number_of_bytes = 1440000;
-        *total_number_of_free_bytes = 0;
+        *free_bytes_available = ctx->getFreeSpace();
+        *total_number_of_bytes = ctx->getTotalSpace();;
+        *total_number_of_free_bytes = ctx->getFreeSpace();
 
         return STATUS_SUCCESS;
     }
