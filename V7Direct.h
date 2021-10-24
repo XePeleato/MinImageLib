@@ -12,7 +12,6 @@ namespace minixfs {
     class V7Direct {
     public:
         V7Direct() = default;
-        explicit V7Direct(Stream& file);
         ino_t d_ino;
         char d_name[DIRSIZ];
     };

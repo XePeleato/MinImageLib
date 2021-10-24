@@ -19,9 +19,9 @@ void runDokan(minixfs::MinixFS& fs) {
     dokanOptions.ThreadCount = 0;
     dokanOptions.Timeout = 0;
     dokanOptions.GlobalContext = reinterpret_cast<ULONG64>(&fs);
-    dokanOptions.MountPoint = L"M:\\";
+    dokanOptions.MountPoint = L"W:\\";
     dokanOptions.Options |= DOKAN_OPTION_ALT_STREAM;
-    dokanOptions.Options |= DOKAN_OPTION_WRITE_PROTECT;
+    //dokanOptions.Options |= DOKAN_OPTION_WRITE_PROTECT;
     dokanOptions.Options |= DOKAN_OPTION_CURRENT_SESSION;
     dokanOptions.Options |= DOKAN_OPTION_STDERR | DOKAN_OPTION_DEBUG;
 

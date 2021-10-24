@@ -61,6 +61,7 @@ namespace minixfs {
                 }
 
                 // CREATE DIRECTORY IN MINIX IMAGE
+                ctx->createFile(filename_str, true);
             }
 
             if (entry && (entry->d2_mode & I_TYPE) != I_DIRECTORY) {
@@ -85,6 +86,7 @@ namespace minixfs {
                      */
 
                     // CREATE FILE
+                    ctx->createFile(filename_str, false);
                     break;
                 case CREATE_NEW:
                     /*
@@ -92,7 +94,7 @@ namespace minixfs {
                      */
                     if (entry) return STATUS_OBJECT_NAME_COLLISION;
 
-                    // CREATE FILE
+                    ctx->createFile(filename_str, false);
                     break;
                 case OPEN_ALWAYS:
                     /*
@@ -278,6 +280,16 @@ namespace minixfs {
         return STATUS_SUCCESS;
     }
 
+    static NTSTATUS DOKAN_CALLBACK minixfs_writefile(LPCWSTR FileName,
+                                                     LPCVOID Buffer,
+                                                     DWORD NumberOfBytesToWrite,
+                                                     LPDWORD NumberOfBytesWritten,
+                                                     LONGLONG Offset,
+                                                     PDOKAN_FILE_INFO DokanFileInfo) {
+        return STATUS_SUCCESS;
+
+    }
+
     void setup(DOKAN_OPERATIONS &dokanOperations) {
         dokanOperations.ZwCreateFile = minixfs_createfile;
         dokanOperations.ReadFile = minixfs_readfile;
@@ -285,5 +297,6 @@ namespace minixfs {
         dokanOperations.FindFiles = minixfs_findfiles;
         dokanOperations.GetDiskFreeSpace = minixfs_getdiskfreespace;
         dokanOperations.GetVolumeInformation = minixfs_getvolumeinformation;
+        dokanOperations.WriteFile = minixfs_writefile;
     }
 }

@@ -27,7 +27,7 @@ namespace minixfs {
     public:
         MinixFS() = default;
         SetupState setup(const std::wstring &filename);
-        const Inode * find(const std::wstring& filename);
+        Inode * find(const std::wstring& filename);
         size_t readInode(const Inode& inode, void *buffer, size_t size, size_t offset) const;
         size_t readBlock(zone_t block, void *buffer, size_t size, size_t offset) const;
         size_t readIndirectBlock(zone_t block, void *buffer, size_t size, size_t offset) const;
@@ -36,6 +36,7 @@ namespace minixfs {
         void loadEntry(ino_t inode, std::filesystem::path &path);
         size_t getFreeSpace() const;
         size_t getTotalSpace() const;
+        void createFile(std::wstring &path, bool isDir);
     private:
         SuperBlock *mSuperBlock;
         std::vector<char> mInodeBitmap;
@@ -50,6 +51,7 @@ namespace minixfs {
         bool getInode(ino_t ino) const;
         void setBlock(zone_t block, bool set);
         void setInode(ino_t ino, bool set);
+
     };
 }
 

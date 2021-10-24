@@ -13,7 +13,7 @@ class Stream {
 public:
     Stream() = default;
 
-    std::ifstream m_file;
+    std::fstream m_file;
     std::streampos m_offset;
 
     std::mutex m_fileMutex;

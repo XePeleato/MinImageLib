@@ -9,7 +9,7 @@ namespace minixfs {
 
     SetupState MinixFS::setup(const std::wstring &filename) {
         mStream = std::make_unique<Stream>();
-        mStream->m_file.open(filename.c_str(),std::ifstream::binary | std::ifstream::in);
+        mStream->m_file.open(filename.c_str(),std::ifstream::binary | std::ifstream::in | std::ofstream::out);
 
         if (!mStream->m_file.is_open()) {
             return SetupState::ErrorFile;
@@ -38,7 +38,7 @@ namespace minixfs {
         return SetupState::Success;
     }
 
-    const Inode *MinixFS::find(const std::wstring& filename) {
+    Inode *MinixFS::find(const std::wstring& filename) {
         std::wcout << L"Finding " + filename + L'\n';
         auto node = mEntryMap.find(filename);
         if (node != mEntryMap.end()) {
@@ -100,6 +100,66 @@ namespace minixfs {
         std::filesystem::path root("\\");
         mEntryMap.emplace(root, 1);
         loadEntry(1, root);
+    }
+
+    void MinixFS::createFile(std::wstring &path, bool isDir) {
+        auto existing = find(path);
+
+        if (existing) {
+            std::wcout << L"FILE  " + path  + L"ALREADY CREATED...\n";
+        }
+
+        ino_t inode = 1;
+        while (getInode(inode)) {
+            inode++;
+        }
+        setInode(inode, true);
+        Inode ino = mInodes->operator[](inode);
+        ino.d2_size = 0;
+        ino.d2_nlinks = isDir ? 2 : 1;
+        ino.d2_mode = 7 + (isDir ? I_DIRECTORY : I_REGULAR);
+
+        // Write inode bitmap value
+        std::lock_guard<std::mutex> lock(mStream->m_fileMutex);
+
+        mStream->m_file.seekg(0x2000 + inode / 8, std::ifstream::beg);
+        mStream->m_file.write(mInodeBitmap.data() + inode / 8, 1);
+
+        // Write inode
+        mStream->m_file.seekg(0x4000 + 64 * (inode - 1), std::ifstream::beg);
+        mStream->m_file.write(reinterpret_cast<const char *>(&ino), 64);
+        // -----------------------------------------------------------------------
+
+        mEntryMap.emplace(path, inode);
+
+        auto parentPath = std::filesystem::path(path).parent_path();
+        auto parent = find(parentPath);
+        auto parentSize = parent->d2_size;
+        auto blocks = parent->d2_zone;
+
+        zone_t lastBlock = 0;
+        while (blocks[lastBlock] != 0) {
+            lastBlock++;
+        }
+        lastBlock = blocks[lastBlock - 1];
+
+
+        auto filename = std::filesystem::path(path).filename().u8string();
+
+        // Write directory entry
+        V7Direct child;
+        const char * filenamecstr = reinterpret_cast<const char *>(filename.c_str());
+        strncpy_s(child.d_name, filenamecstr, _TRUNCATE);
+        child.d_ino = inode;
+        mStream->m_file.seekg(0x1000 * lastBlock + parentSize, std::ifstream::beg);
+        mStream->m_file.write(reinterpret_cast<const char *>(&child), 64);
+
+        // Extend parent
+        parent->d2_size += 64;
+        auto parentEntry = mEntryMap.find(parentPath.wstring());
+        mStream->m_file.seekg(0x4000 + 64 * (parentEntry->second - 1), std::ifstream::beg);
+        mStream->m_file.write(reinterpret_cast<const char *>(parent), 64);
+
     }
 
     void MinixFS::loadEntry(ino_t inode, std::filesystem::path &path) {
@@ -181,7 +241,7 @@ namespace minixfs {
         int w = block / 8;
         int s = block % 8;
         if (set) {
-            mBlockBitmap[w] = 1UL << s;
+            mBlockBitmap[w] |= 1UL << s;
         } else {
             mBlockBitmap[w] &= ~(1UL << s);
         }
@@ -191,7 +251,7 @@ namespace minixfs {
         int w = ino / 8;
         int s = ino % 8;
         if (set) {
-            mInodeBitmap[w] = 1UL << s;
+            mInodeBitmap[w] |= 1UL << s;
         } else {
             mInodeBitmap[w] &= ~(1UL << s);
         }
