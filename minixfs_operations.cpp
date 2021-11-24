@@ -201,7 +201,7 @@ namespace minixfs {
         auto f = ctx->find(filename_str);
 
         if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
-        DWORD attribs = FILE_ATTRIBUTE_READONLY;
+        DWORD attribs = FILE_ATTRIBUTE_ARCHIVE;
 
         if ((f->d2_mode & I_TYPE) == I_DIRECTORY) {
             attribs |= FILE_ATTRIBUTE_DIRECTORY;
@@ -234,7 +234,7 @@ namespace minixfs {
             auto fileName = f->mEntry.d_name;
             std::copy(&fileName[0], &fileName[DIRSIZ - 1], std::begin(findData.cFileName));
 
-            DWORD attribs = FILE_ATTRIBUTE_READONLY;
+            DWORD attribs = FILE_ATTRIBUTE_ARCHIVE;
 
             if ((f->mIno.d2_mode & I_TYPE) == I_DIRECTORY) {
                 attribs |= FILE_ATTRIBUTE_DIRECTORY;
@@ -261,7 +261,7 @@ namespace minixfs {
         *volume_serialnumber = 0x19831116;
         *maximum_component_length = DIRSIZ;
         *filesystem_flags = FILE_CASE_SENSITIVE_SEARCH | FILE_CASE_PRESERVED_NAMES |
-                 FILE_UNICODE_ON_DISK | FILE_READ_ONLY_VOLUME;
+                 FILE_UNICODE_ON_DISK;
 
         wcscpy_s(filesystem_name_buffer, filesystem_name_size, L"Dokan XISO");
 
@@ -280,14 +280,16 @@ namespace minixfs {
         return STATUS_SUCCESS;
     }
 
-    static NTSTATUS DOKAN_CALLBACK minixfs_writefile(LPCWSTR FileName,
+    static NTSTATUS DOKAN_CALLBACK minixfs_writefile(LPCWSTR filename,
                                                      LPCVOID Buffer,
                                                      DWORD NumberOfBytesToWrite,
                                                      LPDWORD NumberOfBytesWritten,
                                                      LONGLONG Offset,
                                                      PDOKAN_FILE_INFO DokanFileInfo) {
-        return STATUS_SUCCESS;
+        auto ctx = utils::getContext(DokanFileInfo);
+        auto filename_str = std::wstring(filename);
 
+        return ctx->writeFile(filename_str, Buffer, NumberOfBytesToWrite, NumberOfBytesWritten, Offset);
     }
 
     void setup(DOKAN_OPERATIONS &dokanOperations) {

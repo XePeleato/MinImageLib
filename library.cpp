@@ -5,11 +5,6 @@
 #include "minixfs_operations.h"
 
 #include <chrono>
-#include <cstdio>
-#include <filesystem>
-#include <iostream>
-#include <string>
-#include <thread>
 
 void runDokan(minixfs::MinixFS& fs) {
     DOKAN_OPTIONS dokanOptions;

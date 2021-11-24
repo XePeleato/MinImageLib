@@ -37,21 +37,24 @@ namespace minixfs {
         size_t getFreeSpace() const;
         size_t getTotalSpace() const;
         void createFile(std::wstring &path, bool isDir);
+        NTSTATUS
+        writeFile(std::wstring &filename, const void *buffer, size_t NumberOfBytesToWrite, unsigned long *NumberOfBytesWritten,
+                  size_t Offset);
     private:
         SuperBlock *mSuperBlock;
-        std::vector<char> mInodeBitmap;
 
-        std::vector<char> mBlockBitmap;
+        std::vector<unsigned char> mInodeBitmap;
 
+        std::vector<unsigned char> mBlockBitmap;
         Inodes *mInodes;
         std::map<std::wstring, ino_t> mEntryMap;
-        std::unique_ptr<Stream> mStream;
 
+        std::unique_ptr<Stream> mStream;
         bool getBlock(zone_t block) const;
         bool getInode(ino_t ino) const;
         void setBlock(zone_t block, bool set);
-        void setInode(ino_t ino, bool set);
 
+        void setInode(ino_t ino, bool set);
     };
 }
 

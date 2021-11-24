@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <bitset>
 #include "MinixFS.h"
 
 namespace minixfs {
@@ -22,13 +23,13 @@ namespace minixfs {
 
         {
             std::lock_guard<std::mutex> lock(mStream->m_fileMutex);
-            mInodeBitmap = std::vector<char>(0x1000);
+            mInodeBitmap = std::vector<unsigned char>(0x1000);
             mStream->m_file.seekg(0x2000, std::ifstream::beg);
-            mStream->m_file.read(mInodeBitmap.data(), 0x1000);
+            mStream->m_file.read(reinterpret_cast<char*>(mInodeBitmap.data()), 0x1000);
 
-            mBlockBitmap = std::vector<char>(0x1000);
+            mBlockBitmap = std::vector<unsigned char>(0x1000);
             mStream->m_file.seekg(0x3000, std::ifstream::beg);
-            mStream->m_file.read(mBlockBitmap.data(), 0x1000);
+            mStream->m_file.read(reinterpret_cast<char*>(mBlockBitmap.data()), 0x1000);
         }
 
         mInodes = new Inodes(*mStream, mSuperBlock->s_ninodes);
@@ -52,13 +53,13 @@ namespace minixfs {
     size_t MinixFS::readInode(const Inode& inode, void *buffer, size_t size, size_t offset) const {
         size_t read = 0;
         size_t toRead = size;
-        std::vector<char> buf(inode.d2_size);
+        std::vector<char> buf(size);
 
-        for (int i = 0; i < V2_NR_TZONES && inode.d2_zone[i] != 0 && toRead != 0; i++) {
+        for (int i = 0; i < V2_NR_TZONES && inode.d2_zone[i] != 0 && toRead > 0; i++) {
             if (i < V2_NR_DZONES) {
                 // Direct block.
                 toRead -= readBlock(inode.d2_zone[i], buf.data() + read, min(0x1000, size), offset);
-                read += 0x1000;
+                read += min(0x1000, inode.d2_size);
             }
             else if (i == V2_NR_DZONES + 1) {
                 // Indirect block
@@ -119,11 +120,13 @@ namespace minixfs {
         ino.d2_nlinks = isDir ? 2 : 1;
         ino.d2_mode = 7 + (isDir ? I_DIRECTORY : I_REGULAR);
 
+        mInodes->operator[](inode) = ino;
+
         // Write inode bitmap value
         std::lock_guard<std::mutex> lock(mStream->m_fileMutex);
 
         mStream->m_file.seekg(0x2000 + inode / 8, std::ifstream::beg);
-        mStream->m_file.write(mInodeBitmap.data() + inode / 8, 1);
+        mStream->m_file.write(reinterpret_cast<char*>(mInodeBitmap.data() + inode / 8), 1);
 
         // Write inode
         mStream->m_file.seekg(0x4000 + 64 * (inode - 1), std::ifstream::beg);
@@ -159,6 +162,55 @@ namespace minixfs {
         auto parentEntry = mEntryMap.find(parentPath.wstring());
         mStream->m_file.seekg(0x4000 + 64 * (parentEntry->second - 1), std::ifstream::beg);
         mStream->m_file.write(reinterpret_cast<const char *>(parent), 64);
+
+    }
+
+    NTSTATUS MinixFS::writeFile(std::wstring &filename,
+                                const void *buffer,
+                                size_t NumberOfBytesToWrite,
+                                unsigned long *NumberOfBytesWritten,
+                                size_t Offset) {
+
+        // First check if file is new (no data blocks)
+        printf("Offset: %zu\n", Offset);
+        auto ino = find(filename);
+
+        int neededBlocks = (NumberOfBytesToWrite + 0xFFF) / 0x1000;
+        int directBlocks = min(7, neededBlocks);
+
+        if (neededBlocks > 7 + 1024 + pow(1024, 2)) {
+            *NumberOfBytesWritten = 0;
+            return STATUS_SUCCESS;
+        }
+
+        std::lock_guard<std::mutex> lock(mStream->m_fileMutex);
+        for (int i = 0, reserved = 0; i < mSuperBlock->s_zones && reserved < directBlocks; i++) {
+            if (!getBlock(i)) {
+                setBlock(i, true);
+                ino->d2_zone[reserved++] = i;
+                mStream->m_file.seekg(0x3000 + i / 8, std::ifstream::beg);
+                mStream->m_file.write(reinterpret_cast<char*>(mBlockBitmap.data() + i / 8), 1);
+            }
+        }
+
+        // Actual writing
+        for (int i = 0; i < (NumberOfBytesToWrite + 0xFFF) / 0x1000; i++) {
+            if (i < 7) {
+                // Direct blocks
+                mStream->m_file.seekg(0x1000 * ino->d2_zone[i], std::ifstream::beg);
+                mStream->m_file.write(reinterpret_cast<const char *>(buffer) + i * 0x1000,
+                                      min(NumberOfBytesToWrite, 0x1000));
+            }
+        }
+        *NumberOfBytesWritten = NumberOfBytesToWrite;
+
+        // Write inode
+        ino->d2_size += NumberOfBytesToWrite;
+        auto entry = mEntryMap.find(filename);
+        mStream->m_file.seekg(0x4000 + 64 * (entry->second - 1), std::ifstream::beg);
+        mStream->m_file.write(reinterpret_cast<const char *>(ino), 64);
+
+        return STATUS_SUCCESS;
 
     }
 
@@ -226,8 +278,14 @@ namespace minixfs {
     }
 
     bool MinixFS::getBlock(zone_t zone) const {
+        int base = mSuperBlock->s_firstdatazone;
+        if (zone < base) {
+            return true;
+        }
+        zone -= base;
         int w = zone / 8;
         int s = zone % 8;
+
         return ((mBlockBitmap[w] >> s) & 1) != 0;
     }
 
@@ -240,6 +298,12 @@ namespace minixfs {
     void MinixFS::setBlock(zone_t block, bool set) {
         int w = block / 8;
         int s = block % 8;
+        int base = mSuperBlock->s_firstdatazone;
+        if (w < base) {
+            return;
+        }
+        block-= base;
+
         if (set) {
             mBlockBitmap[w] |= 1UL << s;
         } else {
