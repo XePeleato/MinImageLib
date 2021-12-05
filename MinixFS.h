@@ -26,7 +26,7 @@ namespace minixfs {
     class MinixFS {
     public:
         MinixFS() = default;
-        SetupState setup(const std::wstring &filename);
+        SetupState setup(const std::string &filename);
         Inode * find(const std::wstring& filename);
         size_t readInode(const Inode& inode, void *buffer, size_t size, size_t offset) const;
         size_t readBlock(zone_t block, void *buffer, size_t size, size_t offset) const;

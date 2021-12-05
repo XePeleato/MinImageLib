@@ -8,7 +8,7 @@
 
 namespace minixfs {
 
-    SetupState MinixFS::setup(const std::wstring &filename) {
+    SetupState MinixFS::setup(const std::string &filename) {
         mStream = std::make_unique<Stream>();
         mStream->m_file.open(filename.c_str(),std::ifstream::binary | std::ifstream::in | std::ofstream::out);
 
@@ -53,17 +53,19 @@ namespace minixfs {
     size_t MinixFS::readInode(const Inode& inode, void *buffer, size_t size, size_t offset) const {
         size_t read = 0;
         size_t toRead = size;
-        std::vector<char> buf(size);
 
         for (int i = 0; i < V2_NR_TZONES && inode.d2_zone[i] != 0 && toRead > 0; i++) {
             if (i < V2_NR_DZONES) {
                 // Direct block.
-                toRead -= readBlock(inode.d2_zone[i], buf.data() + read, min(0x1000, size), offset);
-                read += min(0x1000, inode.d2_size);
+                size_t r = readBlock(inode.d2_zone[i], reinterpret_cast<char *>(buffer) + read, min(0x1000, toRead), offset);
+                toRead -= r;
+                read += r;
             }
             else if (i == V2_NR_DZONES + 1) {
                 // Indirect block
-                read += readIndirectBlock(inode.d2_zone[i], buf.data() + read, min(0x1000, size), offset);
+                size_t r = readIndirectBlock(inode.d2_zone[i], reinterpret_cast<char *>(buffer) + read, min(0x1000, toRead), offset);
+                toRead -= r;
+                read += r;
             }
             else {
                 if (i == V2_NR_DZONES + 2) {
@@ -71,8 +73,6 @@ namespace minixfs {
                 }
             }
         }
-        // handle offset/size here
-        memcpy_s(buffer, size, buf.data() + offset, size);
         return read;
     }
 
