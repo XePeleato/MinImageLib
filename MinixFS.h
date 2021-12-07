@@ -30,7 +30,7 @@ namespace minixfs {
         Inode * find(const std::wstring& filename);
         size_t readInode(const Inode& inode, void *buffer, size_t size, size_t offset) const;
         size_t readBlock(zone_t block, void *buffer, size_t size, size_t offset) const;
-        size_t readIndirectBlock(zone_t block, void *buffer, size_t size, size_t offset) const;
+        size_t readIndirectBlock(zone_t block, void *buffer, size_t size, zone_t blkOffset, size_t offset) const;
         std::vector<DirEntry*> listFolder(const std::filesystem::path &path) const;
         void loadEntries();
         void loadEntry(ino_t inode, std::filesystem::path &path);
@@ -43,9 +43,9 @@ namespace minixfs {
     private:
         SuperBlock *mSuperBlock;
 
-        std::vector<unsigned char> mInodeBitmap;
+        std::vector<unsigned short> mInodeBitmap;
 
-        std::vector<unsigned char> mBlockBitmap;
+        std::vector<unsigned short> mBlockBitmap;
         Inodes *mInodes;
         std::map<std::wstring, ino_t> mEntryMap;
 
