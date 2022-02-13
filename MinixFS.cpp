@@ -251,6 +251,10 @@ namespace minixfs {
             std::cout << entry.d_name;
             std::cout << std::endl;
 
+            if (entry.d_ino == 0) {
+                continue; // Dirty (?)
+            }
+
             auto thisPath = std::filesystem::path(path);
             thisPath /= path;
             if (strcmp(entry.d_name, ".") != 0) {

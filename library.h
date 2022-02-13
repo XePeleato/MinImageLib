@@ -1,6 +1,6 @@
 #ifndef MINIMAGEDRV_LIBRARY_H
 #define MINIMAGEDRV_LIBRARY_H
 
-void hello();
+int hello(char *path);
 
 #endif //MINIMAGEDRV_LIBRARY_H

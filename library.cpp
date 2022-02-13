@@ -14,11 +14,11 @@ void runDokan(minixfs::MinixFS& fs) {
     dokanOptions.ThreadCount = 0;
     dokanOptions.Timeout = 0;
     dokanOptions.GlobalContext = reinterpret_cast<ULONG64>(&fs);
-    dokanOptions.MountPoint = L"W:\\";
+    dokanOptions.MountPoint = L"M:\\";
     dokanOptions.Options |= DOKAN_OPTION_ALT_STREAM;
     //dokanOptions.Options |= DOKAN_OPTION_WRITE_PROTECT;
     dokanOptions.Options |= DOKAN_OPTION_CURRENT_SESSION;
-    dokanOptions.Options |= DOKAN_OPTION_STDERR | DOKAN_OPTION_DEBUG;
+    dokanOptions.Options |= DOKAN_OPTION_STDERR;// | DOKAN_OPTION_DEBUG;
 
     DOKAN_OPERATIONS dokanOperations;
     ZeroMemory(&dokanOperations, sizeof(DOKAN_OPERATIONS));
@@ -28,15 +28,38 @@ void runDokan(minixfs::MinixFS& fs) {
 }
 
 
-void hello() {
+int hello(char *path) {
     auto *fs = new minixfs::MinixFS();
-    auto status = fs->setup(L"C:\\Users\\Eduardo\\fda.img");
-    std::cout << "Hello, World!" << std::endl;
+    //auto status = fs->setup(L"C:\\Users\\Eduardo\\fda.img");
+    auto status = fs->setup(path);
+    std::string message;
+    switch (status) {
+        case minixfs::SetupState::ErrorFile:
+            message = "Error al abrir el fichero.";
+            break;
+        case minixfs::SetupState::ErrorFormat:
+            message = "Formato incorrecto. Es un disquete de Minix?";
+            break;
+        case minixfs::SetupState::Success:
+            message = "Disquete cargado con éxito.";
+            break;
+    }
+    std::cout << message << std::endl;
     runDokan(*fs);
+    return 0;
+}
+
+int noInput() {
+    std::cout << "Uso: MinImage.exe <disquete>" << std::endl;
+    return -1;
 }
 
 int main(int argc, char **argv) {
-    hello();
+    if (argc < 2) {
+        return hello("Y:\\fda.img");
+        //return noInput();
+    }
+    return hello(argv[1]);
 }
 
 
