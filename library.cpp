@@ -28,7 +28,7 @@ void runDokan(minixfs::MinixFS& fs) {
 }
 
 
-int hello(char *path) {
+int hello(const char *path) {
     auto *fs = new minixfs::MinixFS();
     //auto status = fs->setup(L"C:\\Users\\Eduardo\\fda.img");
     auto status = fs->setup(path);
