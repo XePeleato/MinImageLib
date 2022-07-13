@@ -11,7 +11,7 @@ void runDokan(minixfs::MinixFS& fs) {
     ZeroMemory(&dokanOptions, sizeof(dokanOptions));
 
     dokanOptions.Version = DOKAN_VERSION;
-    dokanOptions.ThreadCount = 0;
+    dokanOptions.SingleThread = true;
     dokanOptions.Timeout = 0;
     dokanOptions.GlobalContext = reinterpret_cast<ULONG64>(&fs);
     dokanOptions.MountPoint = L"M:\\";
@@ -24,7 +24,10 @@ void runDokan(minixfs::MinixFS& fs) {
     ZeroMemory(&dokanOperations, sizeof(DOKAN_OPERATIONS));
     minixfs::setup(dokanOperations);
 
+    DokanInit();
     auto status = DokanMain(&dokanOptions, &dokanOperations);
+
+    DokanShutdown();
 }
 
 
